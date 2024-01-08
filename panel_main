@@ -1,0 +1,28 @@
+import panel as pn
+pn.extension()
+
+def dropdown():
+    """
+    Creates a dropdown menu showing which option are recommended and which are probably less usefull.
+    """
+    return pn.widgets.Select(name='Selecteer een optie', groups={'Aangeraden opties':['Optie 1', 'Optie 2'], 'Resterende opties':['Optie 3','Optie 4']})
+
+def hello():
+    return "Hello, Panel!"
+
+def foo(x):
+    return x*x
+
+
+if __name__ == "__main__":
+    ip = pn.interact(foo, x=5)
+    #pick = pn.interact(dropdown, groups='Optie 1')
+    
+    dashboard = pn.template.BootstrapTemplate(title='Radiomics')
+    dashboard.sidebar.append(ip[0])
+
+
+    dashboard.main.append(pn.Row(ip[1]))
+    dashboard.main.append(pn.Column(dropdown()))
+    #dashboard.main.append(pn.Column(pick))
+    dashboard.show()
