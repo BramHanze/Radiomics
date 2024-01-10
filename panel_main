@@ -1,28 +1,68 @@
 import panel as pn
+import pandas as pd
+from bokeh.plotting import figure
 pn.extension()
 
-def dropdown():
+def read_data():
+    df = pd.read_csv('Radiomics/OPC_data_clinical - Sheet1.csv')
+    df_ct = pd.read_csv('Radiomics/OPC_CT_radiomics_TCIA - Sheet1.csv')
+    
+    #merge the 2 dataframes into new dataframe: merged
+    df['patient'] = pd.to_numeric(df['Trial PatientID'].str.replace('OPC-', '').str.lstrip('0'))
+    df.drop('Trial PatientID', axis=1, inplace=True)
+    status = df[['patient','Status','Sex']]
+    merged = df_ct.merge(status, left_on='patient', right_on='patient') #replace df_ct with df_ct[columns]
+    return df, df_ct, merged
+
+def dropdown(data):
     """
     Creates a dropdown menu showing which option are recommended and which are probably less usefull.
     """
-    return pn.widgets.Select(name='Selecteer een optie', groups={'Aangeraden opties':['Optie 1', 'Optie 2'], 'Resterende opties':['Optie 3','Optie 4']})
+    #return pn.widgets.Select(name='Selecteer een optie', groups={'Aangeraden opties':['Optie 1', 'Optie 2'], 'Resterende opties':['Optie 3','Optie 4']})
+    return pn.widgets.Select(name='Selecteer een optie', options=list(data.columns))
 
-def hello():
-    return "Hello, Panel!"
+def dropdown_color():
+    return pn.widgets.Select(name='Selecteer een optie', groups={'Aangeraden opties':['Status', 'Sex'],
+                                                                 'Resterende opties':['Optie 3','Optie 4']})
 
-def foo(x):
-    return x*x
+
+# Function to create scatter plot
+def scatter_plot(x_col, y_col):
+    p = figure(title=f"Scatter Plot ({x_col} vs {y_col})", width=600, height=400)
+    p.xaxis.axis_label = x_col
+    p.yaxis.axis_label = y_col
+
+    p.scatter(x_col, y_col, source=df, size=10)
+
+    return p
+
+def scatter_plot2(x_col, y_col):
+    p = figure(title=f"Scatter Plot ({x_col} vs {y_col})", width=600, height=400)
+    p.xaxis.axis_label = x_col
+    p.yaxis.axis_label = y_col
+
+    p.scatter(df[x_col], df[y_col], size=10)
+
+    return p
+
 
 
 if __name__ == "__main__":
-    ip = pn.interact(foo, x=5)
-    #pick = pn.interact(dropdown, groups='Optie 1')
+    df, df_ct, merged = read_data()
+    #scatter_layout = pn.interact(scatter_plot, x_col=dropdown(), y_col=dropdown())
+    scatter_layout2 = pn.interact(scatter_plot2, x_col=dropdown(df), y_col=dropdown(df))
+    scatter_layout = pn.interact(scatter_plot, x_col=df.select_dtypes(include='number').columns,
+                                            y_col=df.select_dtypes(include='number').columns)
+
+    app = pn.template.BootstrapTemplate(title='Radiomics')
+    app.sidebar.append(pn.Column('Plot 1',scatter_layout[0], 'Plot 2', scatter_layout2[0]))
     
-    dashboard = pn.template.BootstrapTemplate(title='Radiomics')
-    dashboard.sidebar.append(ip[0])
+    app.main.append(pn.Row((pn.Column(
+        pn.Row("# Scatter Plot 1", align="center"),
+        scatter_layout[1],)),'',(pn.Column( # '' creates space between graphs
+        pn.Row("# Scatter Plot 2", align="center"),
+        scatter_layout2[1],))))
+    
+    app.main.append(pn.Column(dropdown(merged)))
 
-
-    dashboard.main.append(pn.Row(ip[1]))
-    dashboard.main.append(pn.Column(dropdown()))
-    #dashboard.main.append(pn.Column(pick))
-    dashboard.show()
+    app.show()
