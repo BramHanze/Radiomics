@@ -1,68 +1,124 @@
 import panel as pn
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from pandas.api.types import is_numeric_dtype
 from bokeh.plotting import figure
+pn.extension('plotly')
 pn.extension()
 
 def read_data():
-    df = pd.read_csv('Radiomics/OPC_data_clinical - Sheet1.csv')
+    #read the 2 dataframes
+    df_clinical = pd.read_csv('Radiomics/OPC_data_clinical - Sheet1.csv')
     df_ct = pd.read_csv('Radiomics/OPC_CT_radiomics_TCIA - Sheet1.csv')
     
     #merge the 2 dataframes into new dataframe: merged
-    df['patient'] = pd.to_numeric(df['Trial PatientID'].str.replace('OPC-', '').str.lstrip('0'))
-    df.drop('Trial PatientID', axis=1, inplace=True)
-    status = df[['patient','Status','Sex']]
-    merged = df_ct.merge(status, left_on='patient', right_on='patient') #replace df_ct with df_ct[columns]
-    return df, df_ct, merged
+    df_clinical['patient'] = pd.to_numeric(df_clinical['Trial PatientID'].str.replace('OPC-', '').str.lstrip('0'))
+    df_clinical.drop('Trial PatientID', axis=1, inplace=True)
+    merged = df_ct.merge(df_clinical, left_on='patient', right_on='patient') #replace df_ct with df_ct[columns]
+    merged.replace({',': '.'}, regex=True, inplace=True)
+    merged['Age at diagnosis'] = pd.to_numeric(merged['Age at diagnosis'])
+    return df_clinical, df_ct, merged
 
-def dropdown(data):
+def create_asked_columns(df_clinical, df_ct):
+    clinical_columns = list(df_clinical.columns)
+    ct_columns = list(df_ct.columns)
+    return clinical_columns, ct_columns
+
+def dropdown(clinical_columns, ct_columns, data):
     """
     Creates a dropdown menu showing which option are recommended and which are probably less usefull.
     """
-    #return pn.widgets.Select(name='Selecteer een optie', groups={'Aangeraden opties':['Optie 1', 'Optie 2'], 'Resterende opties':['Optie 3','Optie 4']})
-    return pn.widgets.Select(name='Selecteer een optie', options=list(data.columns))
+    return pn.widgets.Select(name='Selecteer een optie', groups={'Klinische kolommen':clinical_columns, 'CT kolommen':ct_columns})
+    #return pn.widgets.Select(name='Selecteer een optie', options=list(data.columns))
 
-def dropdown_color():
-    return pn.widgets.Select(name='Selecteer een optie', groups={'Aangeraden opties':['Status', 'Sex'],
-                                                                 'Resterende opties':['Optie 3','Optie 4']})
-
+def plot_chooser(x_col, y_col): #Choose between violin, bar and scatter
+    """
+    Looks at the choosen x and y axis and chooses the best graph type,
+    calls the function corresponding to the choosen graph type.
+    """
+    x_type = is_numeric_dtype(merged[x_col])
+    y_type = is_numeric_dtype(merged[y_col])
+    print(merged[x_col].values[0], merged[y_col].values[0])
+    print(x_type, y_type)
+    if x_type and y_type:
+        return scatter_plot(x_col, y_col)
+    elif not x_type and not y_type:
+        print('bar')
+        return bar_plot(x_col, y_col)
+    elif x_type != y_type:
+        print('violin')
+        return violin_plot(x_col, y_col)
 
 # Function to create scatter plot
 def scatter_plot(x_col, y_col):
-    p = figure(title=f"Scatter Plot ({x_col} vs {y_col})", width=600, height=400)
+    p = figure(title=f"Scatter Plot ({x_col} vs\n{y_col})", width=600, height=600)
     p.xaxis.axis_label = x_col
     p.yaxis.axis_label = y_col
-
-    p.scatter(x_col, y_col, source=df, size=10)
-
+    
+    p.scatter(x_col, y_col, source=merged, size=10)
     return p
 
-def scatter_plot2(x_col, y_col):
-    p = figure(title=f"Scatter Plot ({x_col} vs {y_col})", width=600, height=400)
-    p.xaxis.axis_label = x_col
-    p.yaxis.axis_label = y_col
+def bar_plot(x_axis, y_axis):
+    """
+    info_status = merged.groupby(x_axis)[y_axis].value_counts().unstack()
+    #percentile = df_ct.groupby(x_axis)[y_axis].quantile()
+    ax = info_status.plot(kind='bar', rot=30, stacked=True)
+    print('bar')
+    return plt
+    """
+    fig = px.bar(merged, x=x_axis, y=y_axis, title=f"Bar Plot ({x_axis} vs\n{y_axis})")
+    fig.update_layout(autosize=False,width=600,height=500,)
+    return fig
 
-    p.scatter(df[x_col], df[y_col], size=10)
-
-    return p
-
-
+def violin_plot(x_axis, y_axis):
+    """
+    fig = px.violin(merged, x=x_axis,y=y_axis, color='Status',
+                    title=f"Violin Plot ({x_axis} vs\n{y_axis})")
+    fig.update_layout(
+    autosize=False,
+    width=600,
+    height=400,)
+    #fig.show()
+    return fig
+    """
+    fig = go.Figure()
+    fig.add_trace(go.Violin(x=merged[x_axis][merged['Status'] == 'Dead' ],
+                            y=merged[y_axis][merged['Status'] == 'Dead' ],
+                            legendgroup='Yes', scalegroup='Yes', name='Dead',
+                            side='negative',
+                            line_color='blue')
+                )
+    fig.add_trace(go.Violin(x=merged[x_axis][merged['Status'] == 'Alive' ],
+                            y=merged[y_axis][merged['Status'] == 'Alive' ],
+                            legendgroup='No', scalegroup='No', name='Alive',
+                            side='positive',
+                            line_color='orange')
+                )
+    fig.update_traces(meanline_visible=True)
+    fig.update_layout(title=f"Violin Plot ({x_axis} vs\n{y_axis})",
+                          width=600,height=600,
+                          )
+    return fig
 
 if __name__ == "__main__":
-    df, df_ct, merged = read_data()
+    df_clinical, df_ct, merged = read_data() #create dataframes
+    clinical_columns, ct_columns = create_asked_columns(df_clinical, df_ct)
     #scatter_layout = pn.interact(scatter_plot, x_col=dropdown(), y_col=dropdown())
-    scatter_layout2 = pn.interact(scatter_plot2, x_col=dropdown(df), y_col=dropdown(df))
-    scatter_layout = pn.interact(scatter_plot, x_col=df.select_dtypes(include='number').columns,
-                                            y_col=df.select_dtypes(include='number').columns)
+    #scatter_layout2 = pn.interact(scatter_plot2, x_col=dropdown(df), y_col=dropdown(df))
+
+    layout = pn.interact(plot_chooser, x_col=dropdown(clinical_columns, ct_columns, merged),
+                                 y_col=dropdown(clinical_columns, ct_columns, merged))
+    layout2 = pn.interact(plot_chooser, x_col=dropdown(clinical_columns, ct_columns, merged),
+                                  y_col=dropdown(clinical_columns, ct_columns, merged))
 
     app = pn.template.BootstrapTemplate(title='Radiomics')
-    app.sidebar.append(pn.Column('Plot 1',scatter_layout[0], 'Plot 2', scatter_layout2[0]))
+    app.sidebar.append(pn.Column('Plot 1',layout[0], 2*'\n','Plot 2', layout2[0]))
     
     app.main.append(pn.Row((pn.Column(
-        pn.Row("# Scatter Plot 1", align="center"),
-        scatter_layout[1],)),'',(pn.Column( # '' creates space between graphs
-        pn.Row("# Scatter Plot 2", align="center"),
-        scatter_layout2[1],))))
-    
-    app.main.append(pn.Column(dropdown(merged)))
+        pn.Row(align="center"),
+        layout[1],)),'',(pn.Column( # '' creates space between graphs
+        pn.Row(align="center"),
+        layout2[1],))))
 
     app.show()
