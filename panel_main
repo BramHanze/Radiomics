@@ -17,7 +17,8 @@ def read_data():
     df_clinical.drop('Trial PatientID', axis=1, inplace=True)
     merged = df_ct.merge(df_clinical, left_on='patient', right_on='patient') #replace df_ct with df_ct[columns]
     merged.replace({',': '.'}, regex=True, inplace=True)
-    merged['Age at diagnosis'] = pd.to_numeric(merged['Age at diagnosis'])
+    for column in ['Age at diagnosis', 'Smoking PY', 'Dose (gy)']:
+        merged[column] = pd.to_numeric(merged[column])
     return df_clinical, df_ct, merged
 
 def create_asked_columns(df_clinical, df_ct):
@@ -41,6 +42,7 @@ def plot_chooser(x_col, y_col): #Choose between violin, bar and scatter
     y_type = is_numeric_dtype(merged[y_col])
     print(merged[x_col].values[0], merged[y_col].values[0])
     print(x_type, y_type)
+    print(type(merged[x_col].values[0]))
     if x_type and y_type:
         return scatter_plot(x_col, y_col)
     elif not x_type and not y_type:
@@ -120,5 +122,5 @@ if __name__ == "__main__":
         layout[1],)),'',(pn.Column( # '' creates space between graphs
         pn.Row(align="center"),
         layout2[1],))))
-
+    
     app.show()
