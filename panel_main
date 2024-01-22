@@ -123,7 +123,7 @@ def violin_plot(x_axis, y_axis):
     """
     """
     fig = go.Figure()
-    if x_axis == 'Status':
+    if x_axis == 'Status' or y_axis == 'Status':
         color = 'Sex'
     else:
         color = 'Status'
