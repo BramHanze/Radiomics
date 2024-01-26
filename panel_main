@@ -17,19 +17,20 @@ If numbers and characters are interchanged in the same column, it could cause pr
 
 def read_data():
     #read the 2 dataframes
-    df_clinical = pd.read_csv('OPC_data_clinical - Sheet1.csv')
-    df_ct = pd.read_csv('OPC_CT_radiomics_TCIA - Sheet1.csv')
+    df_clinical = pd.read_csv('Radiomics/OPC_data_clinical.csv')
+    df_ct = pd.read_csv('Radiomics/OPC_CT_radiomics_TCIA.csv', header=1)
     
     #merge the 2 dataframes into new dataframe: merged
     df_clinical['patient'] = pd.to_numeric(df_clinical['Trial PatientID'].str.replace('OPC-', '').str.lstrip('0'))
     df_clinical.drop('Trial PatientID', axis=1, inplace=True)
     merged = df_ct.merge(df_clinical, left_on='patient', right_on='patient') #replace df_ct with df_ct[columns]
     merged.replace({',': '.'}, regex=True, inplace=True)
-    for column in ['Age at diagnosis', 'Smoking PY', 'Dose (gy)']:
-        merged[column] = pd.to_numeric(merged[column])
-
+    #for column in ['Age at diagnosis', 'Smoking PY', 'Dose (gy)']:
+    #    merged[column] = [float(str(x).replace(',', '.')) for x in merged[column]]
+    
+    #print(merged['original_shape_Maximum3DD'])
     #open preference.csv, a file containing which column should be on top, and which should be left out/not shown.
-    with open('preferences.csv', newline='') as f:
+    with open('Radiomics/preferences.csv', newline='') as f:
         file = list(f)
         preference = {'+':file[1].split(',')}
         preference['+'][-1] = preference['+'][-1].replace('\r\n','')
@@ -113,8 +114,7 @@ def bar_plot(x_axis, y_axis):
     print('bar')
     return plt
     """
-
-    fig = px.bar(merged, x=x_axis, y=y_axis, color='Status', barmode= 'group',
+    fig = px.bar(merged, x=x_axis, color=y_axis, barmode= 'group',
                  title=f"Bar Plot ({x_axis} vs\n{y_axis})", )
     fig.update_layout(autosize=False,width=600,height=600,)
     return fig
